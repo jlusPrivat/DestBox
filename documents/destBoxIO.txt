@@ -1,0 +1,73 @@
+Inputs:
+- PowerSupply			-> Port: 0	-> IO: VIN
+- 9VMeasuring			-> Port: 0	-> IO: A0 (Mit Resistor Network)
+- Jack1				-> Port: 1	-> IO: 22
+- Jack2				-> Port: 1	-> IO: 23
+- Zuendquellenschalter1		-> Port: 2	-> IO: 24
+- Zuendquellenschalter2		-> Port: 2	-> IO: 25
+- Keyboard0			-> Port: 3	-> IO: 26
+- Keyboard1			-> Port: 3	-> IO: 27
+- Keyboard2			-> Port: 3	-> IO: 28
+- Keyboard3			-> Port: 3	-> IO: 29
+- Keyboard4			-> Port: 3	-> IO: 30
+- Keyboard5			-> Port: 3	-> IO: 31
+- Keyboard6			-> Port: 3	-> IO: 32
+- Keyboard7			-> Port: 3	-> IO: 33
+- Keyboard8			-> Port: 3	-> IO: 34
+- Keyboard9			-> Port: 3	-> IO: 35
+- Keyboard*			-> Port: 3	-> IO: 36
+- Keyboard#			-> Port: 3	-> IO: 37
+- Testkippschalter		-> Port: 4	-> IO: 38
+- Schluesselschalter		-> Port: 4	-> IO: 39
+- Zuendung			-> Port: 4	-> IO: 40
+
+Outputs:
+- ZuendquellenLED1		-> Port: 2	-> R: None	-> U: 5V	-> GND: Yellow		-> IO: ~2
+- ZuendquellenLED2		-> Port: 2	-> R: None	-> U: 5V	-> GND: Yellow		-> IO: ~3
+- AuthLEDGruen			-> Port: 4	-> R: 1k am NPN	-> U: 12V	-> GND: Schwarz		-> IO: ~4
+- AuthLEDRot			-> Port: 4	-> R: 1k am NPN	-> U: 12V	-> GND: Schwarz		-> IO: ~5
+- TestLEDGruen			-> Port: 4	-> R: 1k am NPN	-> U: 12V	-> GND: Schwarz		-> IO: ~6
+- TestLEDRot			-> Port: 4	-> R: 1k am NPN	-> U: 12V	-> GND: Schwarz		-> IO: ~7
+- ZuenderLED			-> Port: 4	-> R: 1k am NPN -> U: 12V	-> Wechselstrom		-> IO: ~8
+- Zuendung1 (invertiert)	-> Port: 1	-> R: None	-> U: 5V	-> IO: 41
+- Zuendung2 (invertiert)	-> Port: 1	-> R: None	-> U: 5V	-> IO: 42
+- 7Segment (DOUT)		-> Port: 5	-> R: None	-> U: 5V	-> IO: 43
+- 7Segment (LTCH)		-> Port: 5	-> R: None	-> U: 5V	-> IO: 44
+- 7Segment (CLK)		-> Port: 5	-> R: None	-> U: 5V	-> IO: 45
+- LCD RS (Register Select)	-> Port: 6	-> R: None	-> U: 5V	-> IO: 46
+- LCD E (Enable)		-> Port: 6	-> R: None	-> U: 5V	-> IO: 47
+- LCD D4			-> Port: 6	-> R: None	-> U: 5V	-> IO: 48
+- LCD D5			-> Port: 6	-> R: None	-> U: 5V	-> IO: 49
+- LCD D6			-> Port: 6	-> R: None	-> U: 5V	-> IO: 50
+- LCD D7			-> Port: 6	-> R: None	-> U: 5V	-> IO: 51
+
+Ports:
++ 0:12V			{12V+1, 12V-1} [Schraub2]
+			{12V+2, 12V-2} [Schraub2]
+			{9V+, 9V-} [Schraub2]
++ 1:Zuendports		{GND, IN1, IN2, 5V} [PSK4]
+			{Jack1, Jack2, GND} [PSK3]
++ 2:Zuendschalter	{S1, GND} [PSK2]
+			{S2, GND} [PSK2]
+			{LED1+, GND} [PSK2]
+			{LED2+, GND} [PSK2]
++ 3:Tastatur		{GND, GND, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12} [Flachband14]
+- 4:Restschalter	{S1, GND} [PSK2]
+			{12V+, LED1-} [PSK2]
+			{12V+, LED2-} [PSK2]
+			{S2, GND} [PSK2]
+			{12V+, LED3-} [PSK2]
+			{12V+, LED4-} [PSK2]
+			{S3, GND} [PSK2]
+			{12V+, LED5-} [PSK2]
++ 5:7Segment		{5V+, GND, DOUT, LTCH, CLK} [PSK5]
++ 6:LCD			{GND, VCC, V0, RS, R/W, E, D0, D1, D2, D3, D4, D5, D6, D7, A, K} [Flachband16]
+
+Zu ändern:
+- Tastenfeld Radius, breiter (Anpassung für Einsenkung)
+- LCD insgesamt schmaler, Links minimal kleiner, rechts insgesamt schmaler
+- Schlüsselschalter, Kippschalter Einkerbung
+- Poti mit Einfügenut
+
+Prüfen:
+- Lochgröße und Abstand der Schraubklemmen/klemmsysteme
