@@ -227,7 +227,7 @@ namespace SevSeg {
   uint8_t transform(char);
 }
 namespace Crypt {
-  uint8_t counter = (EEPROM[5] == 225) ? (uint8_t) EEPROM[6] : 0;
+  uint8_t counter = (EEPROM.read(5) == 225) ? (uint8_t) EEPROM.read(6) : 0;
   bool isCorrect(uint8_t*);
 }
 

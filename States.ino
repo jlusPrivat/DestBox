@@ -17,11 +17,11 @@ State *StateStart::getInstance () {
 }
 
 void StateStart::keyboardContinue () {
-  uint32_t password = EEPROM[0] == 225 ?
-    ((((uint32_t) EEPROM[1] << 24) & 0xFF000000)
-    | (((uint32_t) EEPROM[2] << 16) & 0xFF0000)
-    | ((EEPROM[3] << 8) & 0xFF00)
-    | (EEPROM[4] & 0xFF))
+  uint32_t password = EEPROM.read(0) == 225 ?
+    ((((uint32_t) EEPROM.read(1) << 24) & 0xFF000000)
+    | (((uint32_t) EEPROM.read(2) << 16) & 0xFF0000)
+    | ((EEPROM.read(3) << 8) & 0xFF00)
+    | (EEPROM.read(4) & 0xFF))
     : 123456789;
   
   if (password == currentInput)
@@ -193,11 +193,11 @@ void StateChangePwd::keyboardContinue () {
     lcd.print("oder zu kurz");
   }
   else {
-    EEPROM[0] = 225;
-    EEPROM[1] = (uint8_t) (toSave >> 24) & 0xFF;
-    EEPROM[2] = (uint8_t) (toSave >> 16) & 0xFF;
-    EEPROM[3] = (uint8_t) (toSave >> 8) & 0xFF;
-    EEPROM[4] = (uint8_t) toSave& 0xFF;
+    EEPROM.write(0, 225);
+    EEPROM.write(1, (uint8_t) (toSave >> 24) & 0xFF);
+    EEPROM.write(2, (uint8_t) (toSave >> 16) & 0xFF);
+    EEPROM.write(3, (uint8_t) (toSave >> 8) & 0xFF);
+    EEPROM.write(4, (uint8_t) toSave& 0xFF);
     lcd.setCursor(3, 1);
     lcd.print("Neues Passwort");
     lcd.setCursor(4, 2);
