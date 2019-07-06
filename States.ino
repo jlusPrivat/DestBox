@@ -11,7 +11,16 @@ State *StateStart::getInstance () {
   lcd.setCursor(1, 3);
   lcd.print("_ _ _ _ _ _ _ _ _");
   authLedRd->dVal(true);
+  authLedGr->dVal(false);
+  modeLedRd->dVal(false);
   modeLedGr->dVal(true);
+  ignLed->dVal(false);
+
+  // added for a full reset of values, when returning to this state
+  actions::authed2 = false;
+  bool inTestMode = true;
+  uint8_t mode = 0;
+  uint32_t countdownTime = 0;
 
   return instance;
 }
@@ -352,6 +361,7 @@ State *StateCounting::getInstance () {
   instance->counting = false;
   instance->originalTime = actions::countdownTime;
   instance->prevLines = 0;
+  instance->backBtnTimer = 0;
 
   uint8_t row = 0;
   for (uint8_t i = 0; i < 5; i++) {
@@ -410,7 +420,17 @@ void StateCounting::pressIgnSw () {
   }
 }
 
+void StateCounting::keyboardBack () {
+  if (counting == 0)
+    counting = 1;
+  else
+    actions::state = StateStart::getInstance();
+}
+
 void StateCounting::tick () {
+  if (counting > 0 && (counting++ > 20))
+    counting = 0;
+  
   if (actions::countdownTime == 0 && counting) {
     counting = false;
     if (actions::mode == POSTCOUNT)

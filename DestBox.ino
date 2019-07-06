@@ -179,12 +179,13 @@ class StateCounting: public State {
     bool authed, counting;
     uint32_t originalTime;
     uint8_t prevLines;
+    uint8_t backBtnTimer;
   public:
     static State *getInstance();
     void authorize ();
     void pressIgnSw ();
     void keyboardContinue () {}
-    void keyboardBack () {}
+    void keyboardBack ();
     void keyboardBtn (uint8_t) {}
     void tick ();
 };
@@ -296,5 +297,3 @@ void loop() {
     actions::tick();
   }
 }
-
-
