@@ -1,0 +1,8 @@
+Es werden 20 Bytes von 4 kiByte des Arduino Megas EEPROM belegt.
+
+- 0:        Auth1 Password set, when value = 255
+- 1-4:      Auth1 Big Endian Password (23 Bit)
+- 5:        Auth2 Key and Counter set, when value = 255
+- 6-15:     Auth2 Key (80 Bit)
+- 16-19:    Auth2 Counter (32 Bit)
+- 20:       Auth1 and Auth2 Failed attempts counter
