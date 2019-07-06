@@ -506,4 +506,7 @@ State *StateIgnited::getInstance () {
   return instance;
 }
 
+void StateIgnited::keyboardBack () {
+  actions::state = StateStart::getInstance();
+}
 

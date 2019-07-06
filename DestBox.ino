@@ -198,7 +198,7 @@ class StateIgnited: public State {
     void authorize () {}
     void pressIgnSw () {}
     void keyboardContinue () {}
-    void keyboardBack () {}
+    void keyboardBack ();
     void keyboardBtn (uint8_t) {}
     void tick () {}
 };
