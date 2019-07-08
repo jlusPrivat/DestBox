@@ -1,5 +1,6 @@
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
+#include <SimpleHOTP.h>
 #include "constants.h"
 #define PRECOUNT 1
 #define POSTCOUNT 2
@@ -216,6 +217,22 @@ class StateIgnited: public State {
     void keyboardBtn (uint8_t) {}
     void tick () {}
 };
+class StateLocked: public State {
+  private:
+    StateLocked() {}
+    static StateLocked *instance;
+    uint8_t currentPlace = 0;
+    uint8_t currentInput[10] = {};
+    uint8_t timeWaiting = 0; // in 1/10 seconds
+  public:
+    static State *getInstance();
+    void authorize () {}
+    void pressIgnSw () {}
+    void keyboardContinue ();
+    void keyboardBack ();
+    void keyboardBtn (uint8_t);
+    void tick ();
+};
 
 
 // Prototypes
@@ -295,6 +312,8 @@ void setup() {
   SevSeg::init();
   if (EEPROM.read(22) != EEPROM_VERSION)
     actions::state = StateRomReset::getInstance();
+  else if (EEPROM.read(20) >= 3)
+    actions::state = StateLocked::getInstance();
   else
     actions::state = StateStart::getInstance();
 }

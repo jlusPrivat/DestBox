@@ -58,9 +58,14 @@ void StateStart::keyboardContinue () {
     | (EEPROM.read(4) & 0xFF))
     : 123456789;
   
-  if (password == currentInput)
+  if (password == currentInput) {
+    EEPROM.update(20, 0);
     actions::state = StateMode::getInstance();
+  }
   else {
+    EEPROM.write(20, EEPROM.read(20) + 1);
+    if (EEPROM.read(20) >= 3)
+      actions::state = StateLocked::getInstance();
     lcd.setCursor(1, 1);
     lcd.print("Falsches Passwort!");
     keyboardBack();
@@ -289,9 +294,13 @@ void StateAuth2::keyboardContinue () {
     actions::state = StateEnterTime::getInstance();
   else if (pos == 6 && Crypt::isCorrect(digits)) {
     actions::authed2 = true;
+    EEPROM.update(20, 0);
     actions::state = StateEnterTime::getInstance();
   }
   else {
+    EEPROM.write(20, EEPROM.read(20) + 1);
+    if (EEPROM.read(20) >= 3)
+      actions::state = StateLocked::getInstance();
     keyboardBack();
     lcd.setCursor(0, 2);
     lcd.print("Falsches OTP");
@@ -535,3 +544,82 @@ void StateIgnited::keyboardBack () {
   actions::state = StateStart::getInstance();
 }
 
+
+
+
+
+
+StateLocked *StateLocked::instance = NULL;
+
+State *StateLocked::getInstance () {
+  if (!instance) instance = new StateLocked();
+
+  SevSeg::off(true);
+  lcd.clear();
+  lcd.print("  DestBox gesperrt");
+  lcd.setCursor(0,1);
+  lcd.print("Device-ID: ");
+  lcd.print(DEVICE_ID);
+  instance->keyboardBack();
+}
+
+void StateLocked::keyboardContinue () {
+  if (currentPlace == 10 && !timeWaiting) {
+    uint32_t userHash[5] = {};
+    SimpleSHA1::generateSHA(currentInput, 10, userHash);
+    uint32_t *systemHash = ovrdKeyShas[EEPROM.read(21)];
+    
+    bool correct = true;
+    for (uint8_t i = 0; i < 5; i++) {
+      if (userHash[i] != systemHash[i])
+        correct = false;
+    }
+
+    if (correct) {
+      EEPROM.write(21, EEPROM.read(21) + 1);
+      EEPROM.write(20, 0);
+      EEPROM.update(0, 0);
+      EEPROM.update(5, 0);
+      actions::state = StateStart::getInstance();
+    }
+    else {
+      timeWaiting = 300;
+    }
+  }
+}
+
+void StateLocked::keyboardBack () {
+  if (!timeWaiting) {
+    currentPlace = 0;
+    lcd.setCursor(0, 2);
+    lcd.print("OVRD-K | PreCheck: ");
+    lcd.print(EEPROM.read(21));
+    lcd.setCursor(0, 3);
+    lcd.print("_ _ _ _ _ _ _ _ _ _");
+  }
+}
+
+void StateLocked::keyboardBtn (uint8_t input) {
+  if (currentPlace < 10 && !timeWaiting) {
+    lcd.setCursor(2*currentPlace, 3);
+    lcd.print(input);
+    currentInput[currentPlace++] = input + 48;
+  }
+}
+
+void StateLocked::tick () {
+  if (timeWaiting) {
+    if ((timeWaiting % 10) == 0) {
+      lcd.setCursor(0, 2);
+      lcd.print("  Falsche Eingabe   ");
+      lcd.setCursor(17, 3);
+      lcd.print("   ");
+      lcd.setCursor(0, 3);
+      lcd.print(" Bitte warten: ");
+      lcd.print(timeWaiting/10);
+      lcd.print("s");
+    }
+    if (--timeWaiting == 0)
+      keyboardBack();
+  }
+}
