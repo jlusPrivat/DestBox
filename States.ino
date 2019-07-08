@@ -10,6 +10,8 @@ State *StateRomReset::getInstance () {
   lcd.print("EEPROM geleert");
   lcd.setCursor(5, 2);
   lcd.print("# druecken");
+
+  return instance;
 }
 
 void StateRomReset::keyboardContinue () {
@@ -561,6 +563,8 @@ State *StateLocked::getInstance () {
   lcd.print("Device-ID: ");
   lcd.print(DEVICE_ID);
   instance->keyboardBack();
+
+  return instance;
 }
 
 void StateLocked::keyboardContinue () {
