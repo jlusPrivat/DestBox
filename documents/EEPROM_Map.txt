@@ -6,3 +6,5 @@ Es werden 20 Bytes von 4 kiByte des Arduino Megas EEPROM belegt.
 - 6-15:     Auth2 Key (80 Bit)
 - 16-19:    Auth2 Counter (32 Bit)
 - 20:       Auth1 and Auth2 Failed attempts counter
+- 21:       Next OVRD-K ID
+- 22:       Reset EEPROM, when not equal to a hardcoded constant
