@@ -1,10 +1,35 @@
+StateRomReset *StateRomReset::instance = NULL;
+
+State *StateRomReset::getInstance () {
+  if (!instance) instance = new StateRomReset();
+
+  for (int i = 0; i < EEPROM.length(); i++)
+    EEPROM.write(i, 0);
+  
+  lcd.setCursor(3, 1);
+  lcd.print("EEPROM geleert");
+  lcd.setCursor(5, 2);
+  lcd.print("# druecken");
+}
+
+void StateRomReset::keyboardContinue () {
+  actions::state = StateStart::getInstance();
+}
+
+
+
+
+
+
+
 StateStart *StateStart::instance = NULL;
 
 State *StateStart::getInstance () {
   if (!instance) instance = new StateStart();
   instance->currentPlace = 0;
   instance->currentInput = 0;
-  
+
+  lcd.clear();
   lcd.print(" DestBox Version 1");
   lcd.setCursor(1, 2);
   lcd.print("Auth1 - Passwort:");

@@ -1,5 +1,6 @@
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
+#include "constants.h"
 #define PRECOUNT 1
 #define POSTCOUNT 2
 
@@ -94,6 +95,19 @@ class State {
     virtual void keyboardBack();
     virtual void keyboardBtn(uint8_t);
     virtual void tick();
+};
+class StateRomReset: public State {
+  private:
+    StateRomReset() {}
+    static StateRomReset *instance;
+  public:
+    static State *getInstance();
+    void authorize () {}
+    void pressIgnSw() {}
+    void keyboardContinue();
+    void keyboardBack() {}
+    void keyboardBtn(uint8_t) {}
+    void tick() {}
 };
 class StateStart: public State {
   private:
@@ -279,7 +293,10 @@ void setup() {
   pinMode(pinModeSw, INPUT_PULLUP);
   lcd.begin(20, 4);
   SevSeg::init();
-  actions::state = StateStart::getInstance();
+  if (EEPROM.read(22) != EEPROM_VERSION)
+    actions::state = StateRomReset::getInstance();
+  else
+    actions::state = StateStart::getInstance();
 }
 
 
