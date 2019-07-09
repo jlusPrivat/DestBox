@@ -1,32 +1,78 @@
+StateRomReset *StateRomReset::instance = NULL;
+
+State *StateRomReset::getInstance () {
+  if (!instance) instance = new StateRomReset();
+
+  for (int i = 0; i < EEPROM.length(); i++)
+    EEPROM.update(i, 0);
+
+  EEPROM.write(ROM_RESET, EEPROM_VERSION);
+  
+  lcd.setCursor(3, 1);
+  lcd.print("EEPROM geleert");
+  lcd.setCursor(5, 2);
+  lcd.print("# druecken");
+
+  return instance;
+}
+
+void StateRomReset::keyboardContinue () {
+  actions::state = StateStart::getInstance();
+}
+
+
+
+
+
+
+
 StateStart *StateStart::instance = NULL;
 
 State *StateStart::getInstance () {
   if (!instance) instance = new StateStart();
   instance->currentPlace = 0;
   instance->currentInput = 0;
-  
+
+  lcd.clear();
   lcd.print(" DestBox Version 1");
   lcd.setCursor(1, 2);
   lcd.print("Auth1 - Passwort:");
   lcd.setCursor(1, 3);
   lcd.print("_ _ _ _ _ _ _ _ _");
   authLedRd->dVal(true);
+  authLedGr->dVal(false);
+  modeLedRd->dVal(false);
   modeLedGr->dVal(true);
+  ignLed->dVal(false);
+
+  // added for a full reset of values, when returning to this state
+  actions::authed2 = false;
+  bool inTestMode = true;
+  uint8_t mode = 0;
+  uint32_t countdownTime = 0;
 
   return instance;
 }
 
 void StateStart::keyboardContinue () {
-  uint32_t password = EEPROM.read(0) == 225 ?
-    ((((uint32_t) EEPROM.read(1) << 24) & 0xFF000000)
-    | (((uint32_t) EEPROM.read(2) << 16) & 0xFF0000)
-    | ((EEPROM.read(3) << 8) & 0xFF00)
-    | (EEPROM.read(4) & 0xFF))
+  uint32_t password = EEPROM.read(ROM_AUTH1_SET) == 225 ?
+    ((((uint32_t) EEPROM.read(ROM_AUTH1(0)) << 24) & 0xFF000000)
+    | (((uint32_t) EEPROM.read(ROM_AUTH1(1)) << 16) & 0xFF0000)
+    | ((EEPROM.read(ROM_AUTH1(2)) << 8) & 0xFF00)
+    | (EEPROM.read(ROM_AUTH1(3)) & 0xFF))
     : 123456789;
   
-  if (password == currentInput)
+  if (password == currentInput) {
+    EEPROM.update(ROM_FAILED_COUNTER, 0);
     actions::state = StateMode::getInstance();
+  }
   else {
+    EEPROM.write(ROM_FAILED_COUNTER,
+                 EEPROM.read(ROM_FAILED_COUNTER) + 1);
+    if (EEPROM.read(ROM_FAILED_COUNTER) >= 3) {
+      actions::state = StateLocked::getInstance();
+      return;
+    }
     lcd.setCursor(1, 1);
     lcd.print("Falsches Passwort!");
     keyboardBack();
@@ -193,11 +239,11 @@ void StateChangePwd::keyboardContinue () {
     lcd.print("oder zu kurz");
   }
   else {
-    EEPROM.write(0, 225);
-    EEPROM.write(1, (uint8_t) (toSave >> 24) & 0xFF);
-    EEPROM.write(2, (uint8_t) (toSave >> 16) & 0xFF);
-    EEPROM.write(3, (uint8_t) (toSave >> 8) & 0xFF);
-    EEPROM.write(4, (uint8_t) toSave& 0xFF);
+    EEPROM.update(ROM_AUTH1_SET, 225);
+    EEPROM.write(ROM_AUTH1(0), (uint8_t) (toSave >> 24) & 0xFF);
+    EEPROM.write(ROM_AUTH1(1), (uint8_t) (toSave >> 16) & 0xFF);
+    EEPROM.write(ROM_AUTH1(2), (uint8_t) (toSave >> 8) & 0xFF);
+    EEPROM.write(ROM_AUTH1(3), (uint8_t) toSave& 0xFF);
     lcd.setCursor(3, 1);
     lcd.print("Neues Passwort");
     lcd.setCursor(4, 2);
@@ -242,8 +288,7 @@ State *StateAuth2::getInstance () {
   lcd.setCursor(1, 1);
   lcd.print("Fuer Test optional");
   lcd.setCursor(0, 3);
-  lcd.print("#:");
-  lcd.print(Crypt::counter);
+  lcd.print("#:0");
   lcd.setCursor(8, 3);
   lcd.print("_ _ _ _ _ _");
   
@@ -255,9 +300,16 @@ void StateAuth2::keyboardContinue () {
     actions::state = StateEnterTime::getInstance();
   else if (pos == 6 && Crypt::isCorrect(digits)) {
     actions::authed2 = true;
+    EEPROM.update(ROM_FAILED_COUNTER, 0);
     actions::state = StateEnterTime::getInstance();
   }
   else {
+    EEPROM.write(ROM_FAILED_COUNTER,
+                 EEPROM.read(ROM_FAILED_COUNTER) + 1);
+    if (EEPROM.read(ROM_FAILED_COUNTER) >= 3) {
+      actions::state = StateLocked::getInstance();
+      return;
+    }
     keyboardBack();
     lcd.setCursor(0, 2);
     lcd.print("Falsches OTP");
@@ -352,6 +404,7 @@ State *StateCounting::getInstance () {
   instance->counting = false;
   instance->originalTime = actions::countdownTime;
   instance->prevLines = 0;
+  instance->backBtnTimer = 0;
 
   uint8_t row = 0;
   for (uint8_t i = 0; i < 5; i++) {
@@ -410,7 +463,17 @@ void StateCounting::pressIgnSw () {
   }
 }
 
+void StateCounting::keyboardBack () {
+  if (backBtnTimer == 0)
+    backBtnTimer = 1;
+  else
+    actions::state = StateStart::getInstance();
+}
+
 void StateCounting::tick () {
+  if (backBtnTimer > 0 && (backBtnTimer++ > 20))
+    backBtnTimer = 0;
+  
   if (actions::countdownTime == 0 && counting) {
     counting = false;
     if (actions::mode == POSTCOUNT)
@@ -486,4 +549,88 @@ State *StateIgnited::getInstance () {
   return instance;
 }
 
+void StateIgnited::keyboardBack () {
+  actions::state = StateStart::getInstance();
+}
 
+
+
+
+
+
+StateLocked *StateLocked::instance = NULL;
+
+State *StateLocked::getInstance () {
+  if (!instance) instance = new StateLocked();
+
+  SevSeg::off(true);
+  lcd.clear();
+  lcd.print("  DestBox gesperrt");
+  lcd.setCursor(0,1);
+  lcd.print("Device-ID: ");
+  lcd.print(DEVICE_ID);
+  instance->keyboardBack();
+
+  return instance;
+}
+
+void StateLocked::keyboardContinue () {
+  if (currentPlace == 10 && !timeWaiting) {
+    uint32_t userHash[5] = {};
+    SimpleSHA1::generateSHA(currentInput, 80, userHash);
+    uint32_t *systemHash = ovrdKeyShas[EEPROM.read(ROM_NEXT_OVRD)];
+    
+    bool correct = true;
+    for (uint8_t i = 0; i < 5; i++) {
+      if (userHash[i] != systemHash[i])
+        correct = false;
+    }
+
+    if (correct) {
+      EEPROM.write(ROM_NEXT_OVRD, EEPROM.read(ROM_NEXT_OVRD) + 1);
+      EEPROM.write(ROM_FAILED_COUNTER, 0);
+      EEPROM.update(ROM_AUTH1_SET, 0);
+      EEPROM.update(ROM_AUTH2_SET, 0);
+      actions::state = StateStart::getInstance();
+    }
+    else {
+      timeWaiting = 300;
+    }
+  }
+}
+
+void StateLocked::keyboardBack () {
+  if (!timeWaiting) {
+    currentPlace = 0;
+    lcd.setCursor(0, 2);
+    lcd.print("OVRD-K | PreCheck: ");
+    lcd.print(EEPROM.read(ROM_NEXT_OVRD));
+    lcd.setCursor(0, 3);
+    lcd.print("_ _ _ _ _ _ _ _ _ _");
+  }
+}
+
+void StateLocked::keyboardBtn (uint8_t input) {
+  if (currentPlace < 10 && !timeWaiting) {
+    lcd.setCursor(2*currentPlace, 3);
+    lcd.print(input);
+    currentInput[currentPlace++] = input + '0';
+  }
+}
+
+void StateLocked::tick () {
+  if (timeWaiting) {
+    if ((timeWaiting % 10) == 0) {
+      lcd.setCursor(0, 2);
+      lcd.print("  Falsche Eingabe   ");
+      lcd.setCursor(17, 3);
+      lcd.print("   ");
+      lcd.setCursor(0, 3);
+      lcd.print(" Bitte warten: ");
+      lcd.print(timeWaiting/10);
+      lcd.print("s");
+    }
+    if (--timeWaiting == 0)
+      keyboardBack();
+  }
+}

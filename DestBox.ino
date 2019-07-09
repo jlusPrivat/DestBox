@@ -1,12 +1,14 @@
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
+#include <SimpleHOTP.h>
+#include "constants.h"
 #define PRECOUNT 1
 #define POSTCOUNT 2
 
 // Configuration
 const uint16_t ledFadeInterval = 3000; // In ms
 const uint16_t ledBlinkInterval = 500; // In ms
-const uint16_t btnDebounce = 100;
+const uint16_t btnDebounce = 150;
 
 // Defining the pins
 const uint8_t pin9VMeasure = A0,
@@ -95,6 +97,19 @@ class State {
     virtual void keyboardBtn(uint8_t);
     virtual void tick();
 };
+class StateRomReset: public State {
+  private:
+    StateRomReset() {}
+    static StateRomReset *instance;
+  public:
+    static State *getInstance();
+    void authorize () {}
+    void pressIgnSw() {}
+    void keyboardContinue();
+    void keyboardBack() {}
+    void keyboardBtn(uint8_t) {}
+    void tick() {}
+};
 class StateStart: public State {
   private:
     StateStart() {}
@@ -179,12 +194,13 @@ class StateCounting: public State {
     bool authed, counting;
     uint32_t originalTime;
     uint8_t prevLines;
+    uint8_t backBtnTimer;
   public:
     static State *getInstance();
     void authorize ();
     void pressIgnSw ();
     void keyboardContinue () {}
-    void keyboardBack () {}
+    void keyboardBack ();
     void keyboardBtn (uint8_t) {}
     void tick ();
 };
@@ -197,9 +213,25 @@ class StateIgnited: public State {
     void authorize () {}
     void pressIgnSw () {}
     void keyboardContinue () {}
-    void keyboardBack () {}
+    void keyboardBack ();
     void keyboardBtn (uint8_t) {}
     void tick () {}
+};
+class StateLocked: public State {
+  private:
+    StateLocked() {}
+    static StateLocked *instance;
+    uint8_t currentPlace = 0;
+    uint8_t currentInput[10] = {};
+    uint16_t timeWaiting = 0; // in 1/10 seconds
+  public:
+    static State *getInstance();
+    void authorize () {}
+    void pressIgnSw () {}
+    void keyboardContinue ();
+    void keyboardBack ();
+    void keyboardBtn (uint8_t);
+    void tick ();
 };
 
 
@@ -227,7 +259,6 @@ namespace SevSeg {
   uint8_t transform(char);
 }
 namespace Crypt {
-  uint8_t counter = (EEPROM.read(5) == 225) ? (uint8_t) EEPROM.read(6) : 0;
   bool isCorrect(uint8_t*);
 }
 
@@ -278,7 +309,12 @@ void setup() {
   pinMode(pinModeSw, INPUT_PULLUP);
   lcd.begin(20, 4);
   SevSeg::init();
-  actions::state = StateStart::getInstance();
+  if (EEPROM.read(ROM_RESET) != EEPROM_VERSION)
+    actions::state = StateRomReset::getInstance();
+  else if (EEPROM.read(ROM_FAILED_COUNTER) >= 3)
+    actions::state = StateLocked::getInstance();
+  else
+    actions::state = StateStart::getInstance();
 }
 
 
@@ -296,5 +332,3 @@ void loop() {
     actions::tick();
   }
 }
-
-
