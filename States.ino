@@ -5,6 +5,8 @@ State *StateRomReset::getInstance () {
 
   for (int i = 0; i < EEPROM.length(); i++)
     EEPROM.update(i, 0);
+
+  EEPROM.write(ROM_RESET, EEPROM_VERSION);
   
   lcd.setCursor(3, 1);
   lcd.print("EEPROM geleert");
@@ -67,8 +69,10 @@ void StateStart::keyboardContinue () {
   else {
     EEPROM.write(ROM_FAILED_COUNTER,
                  EEPROM.read(ROM_FAILED_COUNTER) + 1);
-    if (EEPROM.read(ROM_FAILED_COUNTER) >= 3)
+    if (EEPROM.read(ROM_FAILED_COUNTER) >= 3) {
       actions::state = StateLocked::getInstance();
+      return;
+    }
     lcd.setCursor(1, 1);
     lcd.print("Falsches Passwort!");
     keyboardBack();
@@ -302,8 +306,10 @@ void StateAuth2::keyboardContinue () {
   else {
     EEPROM.write(ROM_FAILED_COUNTER,
                  EEPROM.read(ROM_FAILED_COUNTER) + 1);
-    if (EEPROM.read(ROM_FAILED_COUNTER) >= 3)
+    if (EEPROM.read(ROM_FAILED_COUNTER) >= 3) {
       actions::state = StateLocked::getInstance();
+      return;
+    }
     keyboardBack();
     lcd.setCursor(0, 2);
     lcd.print("Falsches OTP");
@@ -458,15 +464,15 @@ void StateCounting::pressIgnSw () {
 }
 
 void StateCounting::keyboardBack () {
-  if (counting == 0)
-    counting = 1;
+  if (backBtnTimer == 0)
+    backBtnTimer = 1;
   else
     actions::state = StateStart::getInstance();
 }
 
 void StateCounting::tick () {
-  if (counting > 0 && (counting++ > 20))
-    counting = 0;
+  if (backBtnTimer > 0 && (backBtnTimer++ > 20))
+    backBtnTimer = 0;
   
   if (actions::countdownTime == 0 && counting) {
     counting = false;
@@ -571,7 +577,7 @@ State *StateLocked::getInstance () {
 void StateLocked::keyboardContinue () {
   if (currentPlace == 10 && !timeWaiting) {
     uint32_t userHash[5] = {};
-    SimpleSHA1::generateSHA(currentInput, 10, userHash);
+    SimpleSHA1::generateSHA(currentInput, 80, userHash);
     uint32_t *systemHash = ovrdKeyShas[EEPROM.read(ROM_NEXT_OVRD)];
     
     bool correct = true;
@@ -608,7 +614,7 @@ void StateLocked::keyboardBtn (uint8_t input) {
   if (currentPlace < 10 && !timeWaiting) {
     lcd.setCursor(2*currentPlace, 3);
     lcd.print(input);
-    currentInput[currentPlace++] = input + 48;
+    currentInput[currentPlace++] = input + '0';
   }
 }
 

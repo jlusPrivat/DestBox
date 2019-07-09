@@ -8,7 +8,7 @@
 // Configuration
 const uint16_t ledFadeInterval = 3000; // In ms
 const uint16_t ledBlinkInterval = 500; // In ms
-const uint16_t btnDebounce = 100;
+const uint16_t btnDebounce = 150;
 
 // Defining the pins
 const uint8_t pin9VMeasure = A0,
@@ -223,7 +223,7 @@ class StateLocked: public State {
     static StateLocked *instance;
     uint8_t currentPlace = 0;
     uint8_t currentInput[10] = {};
-    uint8_t timeWaiting = 0; // in 1/10 seconds
+    uint16_t timeWaiting = 0; // in 1/10 seconds
   public:
     static State *getInstance();
     void authorize () {}
