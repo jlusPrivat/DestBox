@@ -275,9 +275,67 @@ void StateChangePwd::keyboardBtn(uint8_t a) {
 
 
 
+StateGenerateKey *StateGenerateKey::instance = NULL;
+
+State *StateGenerateKey::getInstance () {
+  if (!instance) instance = new StateGenerateKey();
+
+  randomSeed(analogRead(pinRandomSeed));
+  Key key(20);
+  uint8_t exportedKey[20] = {};
+  key.exportToArray(exportedKey);
+
+  // save the key
+  for (uint8_t i = 0; i < 20; i++)
+    EEPROM.write(ROM_AUTH2_KEY(0) + i, exportedKey[i]);
+
+  // generate base32 output value
+  uint8_t bytePos = 0;
+  uint8_t bitPos = 0;
+  union {uint8_t u8[34]; char c[2][17];} output = {};
+  for (uint8_t i = 0; i < 33; i++) {
+    if (i == 16) continue;
+    output.u8[i]= exportedKey[bytePos] >> max(3-bitPos, 0);
+    uint8_t nextRow = (bitPos+5) / 8;
+    bitPos = (bitPos + 5) % 8;
+    bytePos += nextRow;
+    if (nextRow) {
+      output.u8[i] = output.u8[i] << bitPos;
+      output.u8[i] |= exportedKey[bytePos] >> (8-bitPos);
+    }
+    output.u8[i] &= 0x1F;
+    if (output.u8[i] <= 25)
+      output.u8[i] += 'A';
+    else
+      output.u8[i] += 24;
+  }
+
+  lcd.clear();
+  lcd.print("|  Neuer HOTP Key  |");
+  lcd.setCursor(2, 2);
+  lcd.print(output.c[0]);
+  lcd.setCursor(2, 3);
+  lcd.print(output.c[1]);
+
+  return instance;
+}
+
+void StateGenerateKey::keyboardContinue () {
+  actions::state = StateAuth2::getInstance();
+}
+
+
+
+
+
+
+
 StateAuth2 *StateAuth2::instance = NULL;
 
 State *StateAuth2::getInstance () {
+  if (EEPROM.read(5) != 255)
+    return StateGenerateKey::getInstance();
+  
   if (!instance) instance = new StateAuth2();
   instance->pos = 0;
   for (uint8_t i = 0; i < 6; i++)

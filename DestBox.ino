@@ -12,6 +12,7 @@ const uint16_t btnDebounce = 150;
 
 // Defining the pins
 const uint8_t pin9VMeasure = A0,
+  pinRandomSeed = A1,
   
   pinJack1 = 22,
   pinJack2 = 23,
@@ -155,6 +156,19 @@ class StateChangePwd: public State {
     void keyboardBack();
     void keyboardBtn(uint8_t);
     void tick() {}
+};
+class StateGenerateKey: public State {
+  private:
+    StateGenerateKey() {};
+    static StateGenerateKey *instance;
+  public:
+    static State *getInstance();
+    void authorize () {}
+    void pressIgnSw () {}
+    void keyboardContinue ();
+    void keyboardBack () {}
+    void keyboardBtn (uint8_t) {}
+    void tick () {}
 };
 class StateAuth2: public State {
   private:
