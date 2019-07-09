@@ -259,7 +259,6 @@ namespace SevSeg {
   uint8_t transform(char);
 }
 namespace Crypt {
-  uint8_t counter = (EEPROM.read(5) == 225) ? (uint8_t) EEPROM.read(6) : 0;
   bool isCorrect(uint8_t*);
 }
 
@@ -310,9 +309,9 @@ void setup() {
   pinMode(pinModeSw, INPUT_PULLUP);
   lcd.begin(20, 4);
   SevSeg::init();
-  if (EEPROM.read(22) != EEPROM_VERSION)
+  if (EEPROM.read(ROM_RESET) != EEPROM_VERSION)
     actions::state = StateRomReset::getInstance();
-  else if (EEPROM.read(20) >= 3)
+  else if (EEPROM.read(ROM_FAILED_COUNTER) >= 3)
     actions::state = StateLocked::getInstance();
   else
     actions::state = StateStart::getInstance();

@@ -4,7 +4,7 @@ State *StateRomReset::getInstance () {
   if (!instance) instance = new StateRomReset();
 
   for (int i = 0; i < EEPROM.length(); i++)
-    EEPROM.write(i, 0);
+    EEPROM.update(i, 0);
   
   lcd.setCursor(3, 1);
   lcd.print("EEPROM geleert");
@@ -53,20 +53,21 @@ State *StateStart::getInstance () {
 }
 
 void StateStart::keyboardContinue () {
-  uint32_t password = EEPROM.read(0) == 225 ?
-    ((((uint32_t) EEPROM.read(1) << 24) & 0xFF000000)
-    | (((uint32_t) EEPROM.read(2) << 16) & 0xFF0000)
-    | ((EEPROM.read(3) << 8) & 0xFF00)
-    | (EEPROM.read(4) & 0xFF))
+  uint32_t password = EEPROM.read(ROM_AUTH1_SET) == 225 ?
+    ((((uint32_t) EEPROM.read(ROM_AUTH1(0)) << 24) & 0xFF000000)
+    | (((uint32_t) EEPROM.read(ROM_AUTH1(1)) << 16) & 0xFF0000)
+    | ((EEPROM.read(ROM_AUTH1(2)) << 8) & 0xFF00)
+    | (EEPROM.read(ROM_AUTH1(3)) & 0xFF))
     : 123456789;
   
   if (password == currentInput) {
-    EEPROM.update(20, 0);
+    EEPROM.update(ROM_FAILED_COUNTER, 0);
     actions::state = StateMode::getInstance();
   }
   else {
-    EEPROM.write(20, EEPROM.read(20) + 1);
-    if (EEPROM.read(20) >= 3)
+    EEPROM.write(ROM_FAILED_COUNTER,
+                 EEPROM.read(ROM_FAILED_COUNTER) + 1);
+    if (EEPROM.read(ROM_FAILED_COUNTER) >= 3)
       actions::state = StateLocked::getInstance();
     lcd.setCursor(1, 1);
     lcd.print("Falsches Passwort!");
@@ -234,11 +235,11 @@ void StateChangePwd::keyboardContinue () {
     lcd.print("oder zu kurz");
   }
   else {
-    EEPROM.write(0, 225);
-    EEPROM.write(1, (uint8_t) (toSave >> 24) & 0xFF);
-    EEPROM.write(2, (uint8_t) (toSave >> 16) & 0xFF);
-    EEPROM.write(3, (uint8_t) (toSave >> 8) & 0xFF);
-    EEPROM.write(4, (uint8_t) toSave& 0xFF);
+    EEPROM.update(ROM_AUTH1_SET, 225);
+    EEPROM.write(ROM_AUTH1(0), (uint8_t) (toSave >> 24) & 0xFF);
+    EEPROM.write(ROM_AUTH1(1), (uint8_t) (toSave >> 16) & 0xFF);
+    EEPROM.write(ROM_AUTH1(2), (uint8_t) (toSave >> 8) & 0xFF);
+    EEPROM.write(ROM_AUTH1(3), (uint8_t) toSave& 0xFF);
     lcd.setCursor(3, 1);
     lcd.print("Neues Passwort");
     lcd.setCursor(4, 2);
@@ -283,8 +284,7 @@ State *StateAuth2::getInstance () {
   lcd.setCursor(1, 1);
   lcd.print("Fuer Test optional");
   lcd.setCursor(0, 3);
-  lcd.print("#:");
-  lcd.print(Crypt::counter);
+  lcd.print("#:0");
   lcd.setCursor(8, 3);
   lcd.print("_ _ _ _ _ _");
   
@@ -296,12 +296,13 @@ void StateAuth2::keyboardContinue () {
     actions::state = StateEnterTime::getInstance();
   else if (pos == 6 && Crypt::isCorrect(digits)) {
     actions::authed2 = true;
-    EEPROM.update(20, 0);
+    EEPROM.update(ROM_FAILED_COUNTER, 0);
     actions::state = StateEnterTime::getInstance();
   }
   else {
-    EEPROM.write(20, EEPROM.read(20) + 1);
-    if (EEPROM.read(20) >= 3)
+    EEPROM.write(ROM_FAILED_COUNTER,
+                 EEPROM.read(ROM_FAILED_COUNTER) + 1);
+    if (EEPROM.read(ROM_FAILED_COUNTER) >= 3)
       actions::state = StateLocked::getInstance();
     keyboardBack();
     lcd.setCursor(0, 2);
@@ -571,7 +572,7 @@ void StateLocked::keyboardContinue () {
   if (currentPlace == 10 && !timeWaiting) {
     uint32_t userHash[5] = {};
     SimpleSHA1::generateSHA(currentInput, 10, userHash);
-    uint32_t *systemHash = ovrdKeyShas[EEPROM.read(21)];
+    uint32_t *systemHash = ovrdKeyShas[EEPROM.read(ROM_NEXT_OVRD)];
     
     bool correct = true;
     for (uint8_t i = 0; i < 5; i++) {
@@ -580,10 +581,10 @@ void StateLocked::keyboardContinue () {
     }
 
     if (correct) {
-      EEPROM.write(21, EEPROM.read(21) + 1);
-      EEPROM.write(20, 0);
-      EEPROM.update(0, 0);
-      EEPROM.update(5, 0);
+      EEPROM.write(ROM_NEXT_OVRD, EEPROM.read(ROM_NEXT_OVRD) + 1);
+      EEPROM.write(ROM_FAILED_COUNTER, 0);
+      EEPROM.update(ROM_AUTH1_SET, 0);
+      EEPROM.update(ROM_AUTH2_SET, 0);
       actions::state = StateStart::getInstance();
     }
     else {
@@ -597,7 +598,7 @@ void StateLocked::keyboardBack () {
     currentPlace = 0;
     lcd.setCursor(0, 2);
     lcd.print("OVRD-K | PreCheck: ");
-    lcd.print(EEPROM.read(21));
+    lcd.print(EEPROM.read(ROM_NEXT_OVRD));
     lcd.setCursor(0, 3);
     lcd.print("_ _ _ _ _ _ _ _ _ _");
   }
