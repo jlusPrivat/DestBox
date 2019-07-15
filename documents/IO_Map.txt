@@ -62,12 +62,3 @@ Ports:
 			{12V+, LED5-} [PSK2]
 + 5:7Segment		{5V+, GND, DOUT, LTCH, CLK} [PSK5]
 + 6:LCD			{GND, VCC, V0, RS, R/W, E, D0, D1, D2, D3, D4, D5, D6, D7, A, K} [Flachband16]
-
-Zu ändern:
-- Tastenfeld Radius, breiter (Anpassung für Einsenkung)
-- LCD insgesamt schmaler, Links minimal kleiner, rechts insgesamt schmaler
-- Schlüsselschalter, Kippschalter Einkerbung
-- Poti mit Einfügenut
-
-Prüfen:
-- Lochgröße und Abstand der Schraubklemmen/klemmsysteme
