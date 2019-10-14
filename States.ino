@@ -575,7 +575,9 @@ void StateCounting::displayTime () {
   else {
     uint8_t hours = actions::countdownTime/36000;
     uint8_t minutes = (actions::countdownTime/600) - (hours*60);
-    SevSeg::writeNum((hours * 1000) + (minutes * 10), 0xA);
+    uint8_t tenSeconds = (actions::countdownTime/100)
+        - (hours*360) - (minutes*6);
+    SevSeg::writeNum((hours * 1000) + (minutes * 10) + tenSeconds, 0xA);
   }
   float percent = originalTime == 0 ? 1
     : (float) (originalTime - actions::countdownTime) / originalTime;

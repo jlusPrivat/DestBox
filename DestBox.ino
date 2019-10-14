@@ -8,7 +8,7 @@
 // Configuration
 const uint16_t ledFadeInterval = 3000; // In ms
 const uint16_t ledBlinkInterval = 500; // In ms
-const uint16_t btnDebounce = 150;
+const uint16_t btnDebounce = 300;
 
 // Defining the pins
 const uint8_t pin9VMeasure = A0,
