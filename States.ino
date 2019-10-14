@@ -280,14 +280,30 @@ StateGenerateKey *StateGenerateKey::instance = NULL;
 State *StateGenerateKey::getInstance () {
   if (!instance) instance = new StateGenerateKey();
 
+  // generate and export the key
   randomSeed(analogRead(pinRandomSeed));
   Key key(20);
   uint8_t exportedKey[20] = {};
   key.exportToArray(exportedKey);
 
-  // save the key
+  // generate the first otp
+  SimpleHOTP gen(key, 1);
+  uint32_t firstHOTP = gen.generateHOTP();
+  char hotpString[7];
+  hotpString[6] = '\0';
+  for (int8_t i = 5; i >= 0; i--) {
+    hotpString[i] = (firstHOTP % 10) + '0';
+    firstHOTP /= 10;
+  }
+
+  // save the key and reset the counter
   for (uint8_t i = 0; i < 20; i++)
     EEPROM.write(ROM_AUTH2_KEY(0) + i, exportedKey[i]);
+  EEPROM.write(ROM_AUTH2_SET, 255);
+  EEPROM.write(ROM_AUTH2_COUNTER(0), 0);
+  EEPROM.write(ROM_AUTH2_COUNTER(1), 0);
+  EEPROM.write(ROM_AUTH2_COUNTER(2), 0);
+  EEPROM.write(ROM_AUTH2_COUNTER(3), 2);
 
   // generate base32 output value
   uint8_t bytePos = 0;
@@ -312,10 +328,13 @@ State *StateGenerateKey::getInstance () {
 
   lcd.clear();
   lcd.print("|  Neuer HOTP Key  |");
-  lcd.setCursor(2, 2);
+  lcd.setCursor(2, 1);
   lcd.print(output.c[0]);
-  lcd.setCursor(2, 3);
+  lcd.setCursor(2, 2);
   lcd.print(output.c[1]);
+  lcd.setCursor(2, 3);
+  lcd.print("Test #1:  ");
+  lcd.print((String) hotpString);
 
   return instance;
 }
@@ -333,7 +352,7 @@ void StateGenerateKey::keyboardContinue () {
 StateAuth2 *StateAuth2::instance = NULL;
 
 State *StateAuth2::getInstance () {
-  if (EEPROM.read(5) != 255)
+  if (EEPROM.read(ROM_AUTH2_SET) != 255)
     return StateGenerateKey::getInstance();
   
   if (!instance) instance = new StateAuth2();
