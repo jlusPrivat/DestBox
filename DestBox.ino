@@ -8,10 +8,11 @@
 // Configuration
 const uint16_t ledFadeInterval = 3000; // In ms
 const uint16_t ledBlinkInterval = 500; // In ms
-const uint16_t btnDebounce = 150;
+const uint16_t btnDebounce = 600;
 
 // Defining the pins
 const uint8_t pin9VMeasure = A0,
+  pinRandomSeed = A1,
   
   pinJack1 = 22,
   pinJack2 = 23,
@@ -156,6 +157,19 @@ class StateChangePwd: public State {
     void keyboardBtn(uint8_t);
     void tick() {}
 };
+class StateGenerateKey: public State {
+  private:
+    StateGenerateKey() {};
+    static StateGenerateKey *instance;
+  public:
+    static State *getInstance();
+    void authorize () {}
+    void pressIgnSw () {}
+    void keyboardContinue ();
+    void keyboardBack () {}
+    void keyboardBtn (uint8_t) {}
+    void tick () {}
+};
 class StateAuth2: public State {
   private:
     StateAuth2() {}
@@ -257,9 +271,6 @@ namespace SevSeg {
   void writeNum (uint16_t, uint8_t);
   void toDisplay(uint8_t*);
   uint8_t transform(char);
-}
-namespace Crypt {
-  bool isCorrect(uint8_t*);
 }
 
 

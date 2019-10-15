@@ -275,9 +275,86 @@ void StateChangePwd::keyboardBtn(uint8_t a) {
 
 
 
+StateGenerateKey *StateGenerateKey::instance = NULL;
+
+State *StateGenerateKey::getInstance () {
+  if (!instance) instance = new StateGenerateKey();
+
+  // generate and export the key
+  randomSeed(analogRead(pinRandomSeed));
+  Key key(20);
+  uint8_t exportedKey[20] = {};
+  key.exportToArray(exportedKey);
+
+  // generate the first otp
+  SimpleHOTP gen(key, 1);
+  uint32_t firstHOTP = gen.generateHOTP();
+  char hotpString[7];
+  hotpString[6] = '\0';
+  for (int8_t i = 5; i >= 0; i--) {
+    hotpString[i] = (firstHOTP % 10) + '0';
+    firstHOTP /= 10;
+  }
+
+  // save the key and reset the counter
+  for (uint8_t i = 0; i < 20; i++)
+    EEPROM.write(ROM_AUTH2_KEY(0) + i, exportedKey[i]);
+  EEPROM.write(ROM_AUTH2_SET, 255);
+  EEPROM.write(ROM_AUTH2_COUNTER(0), 0);
+  EEPROM.write(ROM_AUTH2_COUNTER(1), 0);
+  EEPROM.write(ROM_AUTH2_COUNTER(2), 0);
+  EEPROM.write(ROM_AUTH2_COUNTER(3), 2);
+
+  // generate base32 output value
+  uint8_t bytePos = 0;
+  uint8_t bitPos = 0;
+  union {uint8_t u8[34]; char c[2][17];} output = {};
+  for (uint8_t i = 0; i < 33; i++) {
+    if (i == 16) continue;
+    output.u8[i]= exportedKey[bytePos] >> max(3-bitPos, 0);
+    uint8_t nextRow = (bitPos+5) / 8;
+    bitPos = (bitPos + 5) % 8;
+    bytePos += nextRow;
+    if (nextRow) {
+      output.u8[i] = output.u8[i] << bitPos;
+      output.u8[i] |= exportedKey[bytePos] >> (8-bitPos);
+    }
+    output.u8[i] &= 0x1F;
+    if (output.u8[i] <= 25)
+      output.u8[i] += 'A';
+    else
+      output.u8[i] += 24;
+  }
+
+  lcd.clear();
+  lcd.print("|  Neuer HOTP Key  |");
+  lcd.setCursor(2, 1);
+  lcd.print(output.c[0]);
+  lcd.setCursor(2, 2);
+  lcd.print(output.c[1]);
+  lcd.setCursor(2, 3);
+  lcd.print("Test #1:  ");
+  lcd.print((String) hotpString);
+
+  return instance;
+}
+
+void StateGenerateKey::keyboardContinue () {
+  actions::state = StateAuth2::getInstance();
+}
+
+
+
+
+
+
+
 StateAuth2 *StateAuth2::instance = NULL;
 
 State *StateAuth2::getInstance () {
+  if (EEPROM.read(ROM_AUTH2_SET) != 255)
+    return StateGenerateKey::getInstance();
+  
   if (!instance) instance = new StateAuth2();
   instance->pos = 0;
   for (uint8_t i = 0; i < 6; i++)
@@ -288,7 +365,11 @@ State *StateAuth2::getInstance () {
   lcd.setCursor(1, 1);
   lcd.print("Fuer Test optional");
   lcd.setCursor(0, 3);
-  lcd.print("#:0");
+  lcd.print("#:");
+  lcd.print(((uint32_t) EEPROM.read(ROM_AUTH2_COUNTER(0)) << 24) |
+        ((uint32_t) EEPROM.read(ROM_AUTH2_COUNTER(1)) << 16) |
+        ((uint32_t) EEPROM.read(ROM_AUTH2_COUNTER(2)) << 8) |
+        EEPROM.read(ROM_AUTH2_COUNTER(3)));
   lcd.setCursor(8, 3);
   lcd.print("_ _ _ _ _ _");
   
@@ -297,22 +378,48 @@ State *StateAuth2::getInstance () {
 
 void StateAuth2::keyboardContinue () {
   if (pos == 0)
+    // skip the authentication
     actions::state = StateEnterTime::getInstance();
-  else if (pos == 6 && Crypt::isCorrect(digits)) {
-    actions::authed2 = true;
-    EEPROM.update(ROM_FAILED_COUNTER, 0);
-    actions::state = StateEnterTime::getInstance();
-  }
-  else {
-    EEPROM.write(ROM_FAILED_COUNTER,
-                 EEPROM.read(ROM_FAILED_COUNTER) + 1);
-    if (EEPROM.read(ROM_FAILED_COUNTER) >= 3) {
-      actions::state = StateLocked::getInstance();
-      return;
+    
+  else if (pos == 6) {
+    // load the key
+    uint8_t keyArray[20];
+    for (uint8_t i = 0; i < 20; i++)
+      keyArray[i] = EEPROM.read(ROM_AUTH2_KEY(0) + i);
+    Key key(keyArray, 20);
+    SimpleHOTP validator(key,
+        ((uint32_t) EEPROM.read(ROM_AUTH2_COUNTER(0)) << 24) |
+        ((uint32_t) EEPROM.read(ROM_AUTH2_COUNTER(1)) << 16) |
+        ((uint32_t) EEPROM.read(ROM_AUTH2_COUNTER(2)) << 8) |
+        EEPROM.read(ROM_AUTH2_COUNTER(3)));
+    validator.setThrottle(0);
+
+    if (uint32_t newCounter = validator.validate(digits)) {
+      // the entered otp is correct
+      actions::authed2 = true;
+      EEPROM.update(ROM_FAILED_COUNTER, 0);
+      EEPROM.update(ROM_AUTH2_COUNTER(0),
+          (uint8_t) (newCounter >> 24) & 0xFF);
+      EEPROM.update(ROM_AUTH2_COUNTER(1),
+          (uint8_t) (newCounter >> 16) & 0xFF);
+      EEPROM.update(ROM_AUTH2_COUNTER(2),
+          (uint8_t) (newCounter >> 8) & 0xFF);
+      EEPROM.update(ROM_AUTH2_COUNTER(3),
+          (uint8_t) newCounter & 0xFF);
+      actions::state = StateEnterTime::getInstance();
     }
-    keyboardBack();
-    lcd.setCursor(0, 2);
-    lcd.print("Falsches OTP");
+    else {
+      // the entered otp is not correct
+      EEPROM.write(ROM_FAILED_COUNTER,
+               EEPROM.read(ROM_FAILED_COUNTER) + 1);
+      if (EEPROM.read(ROM_FAILED_COUNTER) >= 3) {
+        actions::state = StateLocked::getInstance();
+        return;
+      }
+      keyboardBack();
+      lcd.setCursor(0, 2);
+      lcd.print("Falsches OTP");
+    }
   }
 }
 
@@ -498,7 +605,9 @@ void StateCounting::displayTime () {
   else {
     uint8_t hours = actions::countdownTime/36000;
     uint8_t minutes = (actions::countdownTime/600) - (hours*60);
-    SevSeg::writeNum((hours * 1000) + (minutes * 10), 0xA);
+    uint8_t tenSeconds = (actions::countdownTime/100)
+        - (hours*360) - (minutes*6);
+    SevSeg::writeNum((hours * 1000) + (minutes * 10) + tenSeconds, 0xA);
   }
   float percent = originalTime == 0 ? 1
     : (float) (originalTime - actions::countdownTime) / originalTime;
