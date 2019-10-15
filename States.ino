@@ -365,7 +365,11 @@ State *StateAuth2::getInstance () {
   lcd.setCursor(1, 1);
   lcd.print("Fuer Test optional");
   lcd.setCursor(0, 3);
-  lcd.print("#:0");
+  lcd.print("#:");
+  lcd.print(((uint32_t) EEPROM.read(ROM_AUTH2_COUNTER(0)) << 24) |
+        ((uint32_t) EEPROM.read(ROM_AUTH2_COUNTER(1)) << 16) |
+        ((uint32_t) EEPROM.read(ROM_AUTH2_COUNTER(2)) << 8) |
+        EEPROM.read(ROM_AUTH2_COUNTER(3)));
   lcd.setCursor(8, 3);
   lcd.print("_ _ _ _ _ _");
   
@@ -374,22 +378,48 @@ State *StateAuth2::getInstance () {
 
 void StateAuth2::keyboardContinue () {
   if (pos == 0)
+    // skip the authentication
     actions::state = StateEnterTime::getInstance();
-  else if (pos == 6 && Crypt::isCorrect(digits)) {
-    actions::authed2 = true;
-    EEPROM.update(ROM_FAILED_COUNTER, 0);
-    actions::state = StateEnterTime::getInstance();
-  }
-  else {
-    EEPROM.write(ROM_FAILED_COUNTER,
-                 EEPROM.read(ROM_FAILED_COUNTER) + 1);
-    if (EEPROM.read(ROM_FAILED_COUNTER) >= 3) {
-      actions::state = StateLocked::getInstance();
-      return;
+    
+  else if (pos == 6) {
+    // load the key
+    uint8_t keyArray[20];
+    for (uint8_t i = 0; i < 20; i++)
+      keyArray[i] = EEPROM.read(ROM_AUTH2_KEY(0) + i);
+    Key key(keyArray, 20);
+    SimpleHOTP validator(key,
+        ((uint32_t) EEPROM.read(ROM_AUTH2_COUNTER(0)) << 24) |
+        ((uint32_t) EEPROM.read(ROM_AUTH2_COUNTER(1)) << 16) |
+        ((uint32_t) EEPROM.read(ROM_AUTH2_COUNTER(2)) << 8) |
+        EEPROM.read(ROM_AUTH2_COUNTER(3)));
+    validator.setThrottle(0);
+
+    if (uint32_t newCounter = validator.validate(digits)) {
+      // the entered otp is correct
+      actions::authed2 = true;
+      EEPROM.update(ROM_FAILED_COUNTER, 0);
+      EEPROM.update(ROM_AUTH2_COUNTER(0),
+          (uint8_t) (newCounter >> 24) & 0xFF);
+      EEPROM.update(ROM_AUTH2_COUNTER(1),
+          (uint8_t) (newCounter >> 16) & 0xFF);
+      EEPROM.update(ROM_AUTH2_COUNTER(2),
+          (uint8_t) (newCounter >> 8) & 0xFF);
+      EEPROM.update(ROM_AUTH2_COUNTER(3),
+          (uint8_t) newCounter & 0xFF);
+      actions::state = StateEnterTime::getInstance();
     }
-    keyboardBack();
-    lcd.setCursor(0, 2);
-    lcd.print("Falsches OTP");
+    else {
+      // the entered otp is not correct
+      EEPROM.write(ROM_FAILED_COUNTER,
+               EEPROM.read(ROM_FAILED_COUNTER) + 1);
+      if (EEPROM.read(ROM_FAILED_COUNTER) >= 3) {
+        actions::state = StateLocked::getInstance();
+        return;
+      }
+      keyboardBack();
+      lcd.setCursor(0, 2);
+      lcd.print("Falsches OTP");
+    }
   }
 }
 

@@ -8,7 +8,7 @@
 // Configuration
 const uint16_t ledFadeInterval = 3000; // In ms
 const uint16_t ledBlinkInterval = 500; // In ms
-const uint16_t btnDebounce = 300;
+const uint16_t btnDebounce = 600;
 
 // Defining the pins
 const uint8_t pin9VMeasure = A0,
@@ -271,9 +271,6 @@ namespace SevSeg {
   void writeNum (uint16_t, uint8_t);
   void toDisplay(uint8_t*);
   uint8_t transform(char);
-}
-namespace Crypt {
-  bool isCorrect(uint8_t*);
 }
 
 
