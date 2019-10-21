@@ -32,6 +32,9 @@ State *StateStart::getInstance () {
   if (!instance) instance = new StateStart();
   instance->currentPlace = 0;
   instance->currentInput = 0;
+  
+  // switch off seven segment display
+  SevSeg::off();
 
   lcd.clear();
   lcd.print(" DestBox Version 1");
@@ -99,8 +102,6 @@ void StateStart::keyboardBtn (uint8_t a) {
 }
 
 void StateStart::tick () {
-  // Output Voltage
-  SevSeg::writeNum(map(analogRead(A0), 0, 1023, 0, 450) * 2, 4);
 }
 
 
