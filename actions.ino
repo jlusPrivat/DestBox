@@ -27,17 +27,20 @@ void actions::iterateStaticSwitches () {
 }
 
 
-void actions::ignite () {
+void actions::ignite (uint8_t ignPort) {
+  // negative: mark as triggered already
+  // If not -1, increment until it is -1 and then deactivate this port
+  // it must be -1 in order to enable the device to proceed to the next state
+  actions::countdownTime[ignPort] = -11;
+  
   if (!inTestMode && authed2) {
-    if (digitalRead(pinJack1) == HIGH
+    if (ignPort == 0
+      && digitalRead(pinJack1) == HIGH
       && digitalRead(pinSourceSw1) == LOW)
       digitalWrite(pinIgn1, LOW);
-    if (digitalRead(pinJack2) == HIGH
+    else if (ignPort == 1
+      && digitalRead(pinJack2) == HIGH
       && digitalRead(pinSourceSw2) == LOW)
       digitalWrite(pinIgn2, LOW);
   }
-  delay(1000);
-  digitalWrite(pinIgn1, HIGH);
-  digitalWrite(pinIgn2, HIGH);
-  state = StateIgnited::getInstance();
 }

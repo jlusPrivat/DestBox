@@ -448,8 +448,9 @@ void StateAuth2::keyboardBtn (uint8_t a) {
 
 StateEnterTime *StateEnterTime::instance = NULL;
 
-State *StateEnterTime::getInstance () {
+State *StateEnterTime::getInstance (uint8_t timerIndex) {
   if (!instance) instance = new StateEnterTime();
+  instance->timerIndex = timerIndex;
   instance->pos = 0;
   for (uint8_t i = 0; i < 5; i++)
     instance->digits[i] = 10;
@@ -459,6 +460,14 @@ State *StateEnterTime::getInstance () {
     lcd.print("   POST-COUNTDOWN");
   else
     lcd.print("   PRE-COUNTDOWN");
+  if (timerIndex == 1) {
+    lcd.setCursor(0, 1);
+    lcd.print("Springbar");
+  }
+  lcd.setCursor(12, 1);
+  lcd.print("(Port ");
+  lcd.print(timerIndex + 1);
+  lcd.print(")");
   lcd.setCursor(0, 2);
   lcd.print("Std     Min     Sek");
   lcd.setCursor(0, 3);
@@ -469,16 +478,25 @@ State *StateEnterTime::getInstance () {
 
 void StateEnterTime::keyboardContinue () {
   if (pos == 5)  {
-    actions::countdownTime = 
+    actions::countdownTime[timerIndex] =
       (uint32_t) ((((digits[0] * 60) + (digits[1] * 10)
       + digits[2]) * 60) + (digits[3] * 10) + digits[4]) * 10;
+    if (timerIndex == 1)
+      actions::state = StateCounting::getInstance();
+    else
+      actions::state = StateEnterTime::getInstance(1);
+  }
+  else if (pos == 0 && timerIndex == 1) {
+    actions::countdownTime[1] = actions::countdownTime[0];
     actions::state = StateCounting::getInstance();
   }
 }
 
 void StateEnterTime::keyboardBack () {
   if (pos > 0)
-    getInstance();
+    getInstance(timerIndex);
+  else if (timerIndex == 1)
+    actions::state = StateEnterTime::getInstance();
   else
     actions::state = StateMode::getInstance();
 }
@@ -510,7 +528,7 @@ State *StateCounting::getInstance () {
   if (!instance) instance = new StateCounting();
   instance->authed = false;
   instance->counting = false;
-  instance->originalTime = actions::countdownTime;
+  instance->originalTime = max(actions::countdownTime[0], actions::countdownTime[1]);
   instance->prevLines = 0;
   instance->backBtnTimer = 0;
 
@@ -526,6 +544,14 @@ State *StateCounting::getInstance () {
     lcd.print("   POST-COUNTDOWN");
   else
     lcd.print("   PRE-COUNTDOWN");
+  if (actions::countdownTime[0] != actions::countdownTime[1]) {
+    lcd.setCursor(12, 1);
+    lcd.print("(Port  )");
+    instance->lowestTimer =
+      actions::countdownTime[0] < actions::countdownTime[1] ? 0 : 1;
+    lcd.setCursor(18, 1);
+    lcd.print(instance->lowestTimer + 1);
+  }
   lcd.setCursor(0, 2);
   lcd.print("|");
   lcd.setCursor(19, 2);
@@ -559,14 +585,13 @@ void StateCounting::authorize () {
 
 void StateCounting::pressIgnSw () {
   if (authed) {
-    if (actions::mode == POSTCOUNT) {
-      counting = true;
-      ignLed->dVal(false);
-    }
-    else if (actions::mode == PRECOUNT
-      && actions::countdownTime == 0) {
-      ignLed->dVal(false);
-      actions::ignite();
+    counting = true;
+    ignLed->dVal(false);
+    if (actions::mode == PRECOUNT) {
+      for (uint8_t i = 0; i <= 1; i++) {
+        if (actions::countdownTime[i] == 0)
+          actions::ignite(i);
+      }
     }
   }
 }
@@ -581,37 +606,69 @@ void StateCounting::keyboardBack () {
 void StateCounting::tick () {
   if (backBtnTimer > 0 && (backBtnTimer++ > 20))
     backBtnTimer = 0;
-  
-  if (actions::countdownTime == 0 && counting) {
-    counting = false;
-    if (actions::mode == POSTCOUNT)
-      actions::ignite();
-    else
-      ignLed->fade();
+
+  bool bothFinished = true;
+  for (uint8_t i = 0; i <= 1; i++) {
+    if (counting && actions::countdownTime[i] > 0) {
+      actions::countdownTime[i]--;
+      if (i != lowestTimer && (actions::countdownTime[i]
+          < actions::countdownTime[lowestTimer] || actions::countdownTime[lowestTimer] < 0)) {
+        lowestTimer = i;
+        lcd.setCursor(18, 1);
+        lcd.print(i + 1);
+      }
+    }
+    else if (counting && actions::countdownTime[i] == 0) {
+      switch (actions::mode) {
+        case POSTCOUNT: actions::ignite(i); break;
+        default: ignLed->fade(); counting = false; break;
+      }
+    }
+    else if (actions::countdownTime[i] < -1) {
+      if (++actions::countdownTime[i] == -1) {
+        if (i == 0) digitalWrite(pinIgn1, HIGH);
+        else digitalWrite(pinIgn2, HIGH);
+      }
+    }
+    if (actions::countdownTime[i] != -1)
+      bothFinished = false;
   }
-  else if (counting) {
-    actions::countdownTime--;
+  if (counting)
     displayTime();
-  }
+  if (bothFinished)
+    actions::state = StateIgnited::getInstance();
 }
 
 void StateCounting::displayTime () {
-  if (actions::countdownTime < 600)
-    SevSeg::writeNum(actions::countdownTime, 0xA);
-  else if (actions::countdownTime < 36000) {
-    uint8_t minutes = actions::countdownTime/600;
-    uint8_t seconds = (actions::countdownTime/10) - (minutes*60);
+  int32_t lcdTime, sevSegTime;
+  if (actions::countdownTime[0] == actions::countdownTime[1])
+    lcdTime = sevSegTime = actions::countdownTime[0];
+  else {
+    if (actions::countdownTime[1] > actions::countdownTime[0])
+      lcdTime = actions::countdownTime[1];
+    else
+      lcdTime = actions::countdownTime[0];
+    sevSegTime = actions::countdownTime[lowestTimer];
+  }
+  lcdTime = lcdTime < 0 ? 0 : lcdTime;
+  sevSegTime = sevSegTime < 0 ? 0 : sevSegTime;
+
+  if (sevSegTime < 600)
+    SevSeg::writeNum(sevSegTime, 0xA);
+  else if (sevSegTime < 36000) {
+    uint8_t minutes = sevSegTime/600;
+    uint8_t seconds = (sevSegTime/10) - (minutes*60);
     SevSeg::writeNum((minutes * 100) + seconds, 0x4);
   }
   else {
-    uint8_t hours = actions::countdownTime/36000;
-    uint8_t minutes = (actions::countdownTime/600) - (hours*60);
-    uint8_t tenSeconds = (actions::countdownTime/100)
+    uint8_t hours = sevSegTime/36000;
+    uint8_t minutes = (sevSegTime/600) - (hours*60);
+    uint8_t tenSeconds = (sevSegTime/100)
         - (hours*360) - (minutes*6);
     SevSeg::writeNum((hours * 1000) + (minutes * 10) + tenSeconds, 0xA);
   }
   float percent = originalTime == 0 ? 1
-    : (float) (originalTime - actions::countdownTime) / originalTime;
+    : (float) (originalTime - lcdTime) / originalTime;
   uint8_t lines = 90 * percent;
   if (prevLines != lines) {
     prevLines = lines;

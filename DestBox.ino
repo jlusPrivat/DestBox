@@ -189,10 +189,11 @@ class StateEnterTime: public State {
   private:
     StateEnterTime() {}
     static StateEnterTime *instance;
+    uint8_t timerIndex;
     uint8_t pos;
     uint8_t digits[5];
   public:
-    static State *getInstance();
+    static State *getInstance(uint8_t t = 0);
     void authorize () {}
     void pressIgnSw () {}
     void keyboardContinue ();
@@ -207,6 +208,7 @@ class StateCounting: public State {
     void displayTime ();
     bool authed, counting;
     uint32_t originalTime;
+    uint8_t lowestTimer;
     uint8_t prevLines;
     uint8_t backBtnTimer;
   public:
@@ -255,7 +257,7 @@ namespace actions {
   bool authed2 = false;
   bool inTestMode = true;
   uint8_t mode = 0;
-  uint32_t countdownTime = 0; // In 1/10s
+  int32_t countdownTime[2] = {0}; // In 1/10s
   void authorize() {state->authorize();}
   void pressIgnSw() {state->pressIgnSw();}
   void keyboardContinue() {state->keyboardContinue();}
@@ -263,7 +265,7 @@ namespace actions {
   void keyboardBtn(uint8_t a) {state->keyboardBtn(a);}
   void tick() {state->tick();}
   void iterateStaticSwitches();
-  void ignite();
+  void ignite(uint8_t);
 }
 namespace SevSeg {
   void init();
