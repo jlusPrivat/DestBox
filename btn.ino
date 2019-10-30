@@ -16,8 +16,10 @@ void btn::iterateAll () {
         fxBtns[i]->currentState = reading;
         if (fxBtns[i]->triggerEdge == CHANGE
         || (reading && fxBtns[i]->triggerEdge == RISING)
-        || (!reading && fxBtns[i]->triggerEdge == FALLING))
+        || (!reading && fxBtns[i]->triggerEdge == FALLING)) {
+          fxBtns[i]->lastTriggered = millis();
           fxBtns[i]->runOnTrigger();
+        }
       }
     }
   }
