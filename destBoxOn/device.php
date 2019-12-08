@@ -43,7 +43,7 @@ class Device {
 		$returner = ['shas'=>array(), 'ovrd_c'=>array()];
 		$values = array();
 		for ($i = 0; $i < 10; $i++) {
-			$ovrd_k = sprintf('%010d', mt_rand(0, 9999999999));
+			$ovrd_k = sprintf('%010d', mt_rand(1, 9999999999));
 			$returner['shas'][] =
 				'{0x'.implode(', 0x', str_split(strtoupper(sha1($ovrd_k)), 8)).'}';
 			
@@ -71,8 +71,9 @@ class Device {
 				. $this->dbEntry['did'] . ' AND `used` is null ORDER BY `kid` ASC LIMIT 1')->fetch_assoc();
 		if (!$result)
 			return 'NO_KEY';
-		if (($decrypt = sprintf('%010d', openssl_decrypt($result['crypt'], 'aes128',
-										$ovrd_c_k, 0, hex2bin($result['iv'])))) === false)
+		$decrypt = sprintf('%010d', openssl_decrypt($result['crypt'], 'aes128',
+					$ovrd_c_k, 0, hex2bin($result['iv'])));
+		if ($decrypt == false || $decrypt == 0)
 			return 'WRONG_KEY';
 		
 		$mysql->query('UPDATE `destbox_keys` SET `used` = CURRENT_TIMESTAMP, `crypt` = ' . $decrypt
